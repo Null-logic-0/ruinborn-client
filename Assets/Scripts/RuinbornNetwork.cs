@@ -17,6 +17,9 @@ public class RuinbornNetwork : MonoBehaviour
     public static event Action<string, int> OnPlayerLeft;
     public static event Action<string, Vector3> OnPlayerMoved;
 
+    public static event Action<string, int>    OnHpUpdate;
+    public static event Action<string, string> OnPlayerDied;
+
 
     public static RuinbornNetwork Instance { get; private set; }
 
@@ -126,6 +129,17 @@ public class RuinbornNetwork : MonoBehaviour
                         );
                         OnPlayerMoved?.Invoke(movedId, position);
                     }
+                    break;
+                case "hp_update":
+                    var hpPlayerId = payload["player_id"]?.ToString();
+                    var hp         = payload["hp"]?.Value<int>() ?? 0;
+                    OnHpUpdate?.Invoke(hpPlayerId, hp);
+                    break;
+
+                case "player_died":
+                    var diedId   = payload["player_id"]?.ToString();
+                    var killerId = payload["killer_id"]?.ToString();
+                    OnPlayerDied?.Invoke(diedId, killerId);
                     break;
             }
         }

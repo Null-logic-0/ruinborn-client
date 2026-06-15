@@ -7,12 +7,13 @@ public class GameManager : MonoBehaviour
 
     private Dictionary<string, RemotePlayer> _remotePlayers = new();
 
-    // Subscribe to network events when this object is active
     void OnEnable()
     {
         RuinbornNetwork.OnPlayerJoined += HandlePlayerJoined;
         RuinbornNetwork.OnPlayerLeft   += HandlePlayerLeft;
         RuinbornNetwork.OnPlayerMoved  += HandlePlayerMoved;
+        RuinbornNetwork.OnHpUpdate     += HandleHpUpdate;
+        RuinbornNetwork.OnPlayerDied   += HandlePlayerDied;
     }
 
     void OnDisable()
@@ -20,11 +21,12 @@ public class GameManager : MonoBehaviour
         RuinbornNetwork.OnPlayerJoined -= HandlePlayerJoined;
         RuinbornNetwork.OnPlayerLeft   -= HandlePlayerLeft;
         RuinbornNetwork.OnPlayerMoved  -= HandlePlayerMoved;
+        RuinbornNetwork.OnHpUpdate     -= HandleHpUpdate;
+        RuinbornNetwork.OnPlayerDied   -= HandlePlayerDied;
     }
 
     void HandlePlayerJoined(string playerId, int count)
     {
-        // Skip ourselves
         if (playerId == RuinbornNetwork.Instance?.PlayerId) return;
         if (_remotePlayers.ContainsKey(playerId)) return;
 
@@ -49,5 +51,34 @@ public class GameManager : MonoBehaviour
     {
         if (_remotePlayers.TryGetValue(playerId, out var rp))
             rp.SetTargetPosition(position);
+    }
+
+    void HandleHpUpdate(string playerId, int hp)
+    {
+        bool isLocal = playerId == RuinbornNetwork.Instance?.PlayerId;
+
+        if (isLocal)
+            FindAnyObjectByType<CombatController>()?.OnHit();
+    }
+
+    void HandlePlayerDied(string playerId, string killerId)
+    {
+        if (playerId == RuinbornNetwork.Instance?.PlayerId)
+        {
+            var tpc = FindAnyObjectByType<StarterAssets.ThirdPersonController>(); 
+            if (tpc != null) tpc.enabled = false;
+
+            var combat = FindAnyObjectByType<CombatController>();
+                    Debug.Log($"[Game] CombatController found: {combat != null}");  
+
+            if (combat != null) combat.enabled = false;
+
+            Debug.Log("[Game] YOU DIED");
+        }
+        else
+        {
+            HandlePlayerLeft(playerId, 0);
+            Debug.Log("[Game] ENEMY DEFEATED");
+        }
     }
 }

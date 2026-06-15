@@ -7,6 +7,7 @@ public class CombatController : MonoBehaviour
 {
     private Animator _animator;
     private int      _locomotionHash = 0;
+    private bool     _isDead         = false;
 
     [System.Serializable]
     public class Weapon
@@ -19,7 +20,7 @@ public class CombatController : MonoBehaviour
     [SerializeField] private Weapon[] weapons = {
         new Weapon {
             name       = "Axe",
-            animations = new[] { "1Hand_Up_Attack_A_1_InPlace", "1Hand_Up_Attack_A_2_InPlace" }
+            animations = new[] { "1Hand_Up_Attack_A_1", "1Hand_Up_Attack_A_2" }
         },
         new Weapon {
             name       = "Bat",
@@ -27,15 +28,17 @@ public class CombatController : MonoBehaviour
         }
     };
 
-    private int   _currentWeapon = 0;
-    private int   _comboIndex    = 0;
-    private float _cooldown      = 0f;
+    private int      _currentWeapon = 0;
+    private int      _comboIndex    = 0;
+    private float    _cooldown      = 0f;
 
-    private string[] hitAnimations = { "Hit_F_1_InPlace", "Hit_F_2_InPlace" };
+    private string[] hitAnimations = { "Hit_F_1_InPlace" };
+    private bool     _isCrouching  = false;
 
-    private bool   _isCrouching   = false;
     [SerializeField] private string crouchAnimation = "1Hand_Up_Crouch_F";
+    [SerializeField] private string deathAnimation  = "HumanM@Death01";
 
+   
 
     void Start()
     {
@@ -44,11 +47,31 @@ public class CombatController : MonoBehaviour
         ShowCurrentWeapon();
     }
 
+    void OnEnable()
+    {
+        RuinbornNetwork.OnPlayerDied += HandlePlayerDied;
+    }
+
+    void OnDisable()
+    {
+        RuinbornNetwork.OnPlayerDied -= HandlePlayerDied;
+    }
+
+    void HandlePlayerDied(string playerId, string killerId)
+    {
+        if (playerId != RuinbornNetwork.Instance?.PlayerId) return;
+        Debug.Log("[Combat] Local player died — calling Die()");
+        Die();
+    }
+
+    // Input
+
     void Update()
     {
+        if (_isDead) return;
+
         _cooldown -= Time.deltaTime;
 
-        // Continuously capture locomotion state hash when not attacking
         if (!_isCrouching)
         {
             var info = _animator.GetCurrentAnimatorStateInfo(0);
@@ -61,7 +84,6 @@ public class CombatController : MonoBehaviour
 
         if (kb != null)
         {
-            // C = crouch toggle
             if (kb.cKey.wasPressedThisFrame)
             {
                 _isCrouching = !_isCrouching;
@@ -74,12 +96,10 @@ public class CombatController : MonoBehaviour
 
         if (mouse != null)
         {
-            // Scroll wheel = switch weapon
             float scroll = mouse.scroll.ReadValue().y;
             if (scroll > 0f) CycleWeapon(1);
             if (scroll < 0f) CycleWeapon(-1);
 
-            // Left click = attack
             if (mouse.leftButton.wasPressedThisFrame && _cooldown <= 0f && !_isCrouching)
             {
                 _cooldown = 0.8f;
@@ -88,6 +108,7 @@ public class CombatController : MonoBehaviour
         }
     }
 
+    // Weapons
 
     void CycleWeapon(int direction)
     {
@@ -113,16 +134,20 @@ public class CombatController : MonoBehaviour
             Debug.LogWarning($"[Combat] No model assigned for: {w.name}");
     }
 
+    // Attack
 
     void Attack()
     {
-        var    anims = weapons[_currentWeapon].animations;
-        string anim  = anims[_comboIndex % anims.Length];
+        StopAllCoroutines();
+
+        var    anims   = weapons[_currentWeapon].animations;
+        string anim    = anims[_comboIndex % anims.Length];
         _comboIndex++;
 
-        _animator.CrossFade(anim, 0.1f, 0);
-
         float duration = GetAnimationLength(anim);
+        _cooldown      = duration * 0.6f;
+
+        _animator.CrossFade(anim, 0.1f, 0);
         StartCoroutine(ReturnToMovement(duration));
 
         if (RuinbornNetwork.Instance?.IsJoined == true)
@@ -162,19 +187,95 @@ public class CombatController : MonoBehaviour
         return false;
     }
 
+    // Hit reaction
 
     public void OnHit()
     {
-        _animator.CrossFade(hitAnimations[Random.Range(0, hitAnimations.Length)], 0.1f, 0);
-        StartCoroutine(ReturnToMovement(0.5f));
+        if (_isDead) return;
+
+        string anim = hitAnimations[Random.Range(0, hitAnimations.Length)];
+        int    hash = Animator.StringToHash(anim);
+
+        if (_animator.HasState(0, hash))
+        {
+            _animator.CrossFade(anim, 0.1f, 0);
+            StartCoroutine(ReturnToMovement(0.5f));
+        }
     }
 
-   
+    // Death
+
+    public void Die()
+    {
+    Debug.Log($"[Combat] Die() — isDead:{_isDead} animNull:{_animator == null}");
+
+    if (_isDead) return;
+
+    StopAllCoroutines();
+    _isDead      = true;
+    _cooldown    = 999f;
+    _isCrouching = false;
+
+    // Disable CharacterController so it stops fighting gravity
+    var cc = GetComponent<CharacterController>();
+    if (cc != null) cc.enabled = false;
+
+    if (_animator == null)
+        _animator = GetComponentInChildren<Animator>();
+
+    if (_animator == null)
+    {
+        StartCoroutine(FallDown());
+        return;
+    }
+
+    int  hash     = Animator.StringToHash(deathAnimation);
+    bool hasState = _animator.HasState(0, hash);
+
+    Debug.Log($"[Combat] Die() — anim:'{deathAnimation}' hasState:{hasState}");
+
+    if (hasState)
+        _animator.CrossFade(deathAnimation, 0.2f, 0);
+    else
+        StartCoroutine(FallDown());
+}
+
+IEnumerator FallDown()
+{
+    float elapsed    = 0f;
+    float duration   = 0.8f;
+    float halfHeight = 0.9f;
+
+    Quaternion startRot = transform.rotation;
+
+    // Fall forward (face down) — change to -90f to fall backward (face up)
+    Quaternion endRot = startRot * Quaternion.Euler(90f, 0f, 0f);
+
+    Vector3 startCenter = transform.position + Vector3.up * halfHeight;
+    Vector3 endCenter   = new Vector3(startCenter.x, 0.15f, startCenter.z);
+
+    while (elapsed < duration)
+    {
+        elapsed += Time.deltaTime;
+        float t  = Mathf.SmoothStep(0f, 1f, elapsed / duration);
+
+        transform.rotation = Quaternion.Lerp(startRot, endRot, t);
+
+        Vector3 currentCenter = Vector3.Lerp(startCenter, endCenter, t);
+        transform.position    = currentCenter - transform.up * halfHeight;
+
+        yield return null;
+    }
+}
+
+    // Return to locomotion
 
     IEnumerator ReturnToMovement(float delay)
     {
         if (delay > 0f)
             yield return new WaitForSeconds(delay);
+
+        if (_isDead) yield break;
 
         if (_isCrouching)
         {
