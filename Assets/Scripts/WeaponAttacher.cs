@@ -2,7 +2,6 @@ using UnityEngine;
 
 public class WeaponAttacher : MonoBehaviour
 {
-    [SerializeField] private Animator survivalistAnimator;
     [SerializeField] private GameObject[] weapons;
 
     [Header("Offset")]
@@ -11,17 +10,20 @@ public class WeaponAttacher : MonoBehaviour
 
     void Start()
     {
-        if (survivalistAnimator == null)
+        var selector = GetComponent<RandomCharacterSelector>();
+        if (selector == null || selector.ActiveVariant == null)
         {
-            Debug.LogError("[WeaponAttacher] No animator assigned");
+            Debug.LogWarning("[WeaponAttacher] No active variant found");
             return;
         }
 
-        Transform rightHand = survivalistAnimator.GetBoneTransform(HumanBodyBones.RightHand);
+        var anim = selector.ActiveVariant.GetComponent<Animator>();
+        if (anim == null) return;
 
+        Transform rightHand = anim.GetBoneTransform(HumanBodyBones.RightHand);
         if (rightHand == null)
         {
-            Debug.LogWarning("[WeaponAttacher] Right hand bone not found");
+            Debug.LogWarning("[WeaponAttacher] Right hand not found");
             return;
         }
 
@@ -33,6 +35,6 @@ public class WeaponAttacher : MonoBehaviour
             weapon.transform.localRotation = Quaternion.Euler(rotationOffset);
         }
 
-        Debug.Log($"[WeaponAttacher] Weapons attached to: {rightHand.name}");
+        Debug.Log($"[WeaponAttacher] Weapons → {rightHand.name}");
     }
 }
