@@ -12,6 +12,14 @@ Demo video showing how the Unity client looks in-game:
 
 The demo should show the third-person character, movement, weapon attacks, and the multiplayer events coming from the Elixir/Phoenix backend.
 
+
+
+
+https://github.com/user-attachments/assets/c05af843-eab3-4307-bea7-0c32feac5d61
+
+
+
+
 ## About The Ruinborn Elixir Project
 
 The backend lives in the [`Null-logic-0/ruinborn`](https://github.com/Null-logic-0/ruinborn) Phoenix application. It uses Phoenix Channels, PubSub, a registry, and dynamically supervised match processes to run simple two-player matches.
