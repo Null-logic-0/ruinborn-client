@@ -113,6 +113,9 @@ namespace StarterAssets
 
         private bool _hasAnimator;
 
+
+        private bool _wasGrounded;
+
         private bool IsCurrentDeviceMouse
         {
             get
@@ -161,8 +164,8 @@ namespace StarterAssets
         {
             _hasAnimator = TryGetComponent(out _animator);
            
-            JumpAndGravity();
             GroundedCheck();
+            JumpAndGravity();
             Move();
         }
 
@@ -187,6 +190,8 @@ namespace StarterAssets
                 transform.position.z);
             Grounded = Physics.CheckSphere(spherePosition, GroundedRadius, GroundLayers,
                 QueryTriggerInteraction.Ignore);
+
+                Debug.Log($"[TPC] Grounded: {Grounded} Y:{transform.position.y}");
 
             // update animator if using character
             if (_hasAnimator)
@@ -296,7 +301,14 @@ namespace StarterAssets
                 {
                     _animator.SetBool(_animIDJump, false);
                     _animator.SetBool(_animIDFreeFall, false);
+
+                    if (!_wasGrounded)
+        {
+            _animator.CrossFade("Idle Walk Run Blend", 0.15f, 0);
+        }
                 }
+
+    _wasGrounded = true;  
 
                 // stop our velocity dropping infinitely when grounded
                 if (_verticalVelocity < 0.0f)
@@ -309,6 +321,9 @@ namespace StarterAssets
                 {
                     // the square root of H * -2 * G = how much velocity needed to reach desired height
                     _verticalVelocity = Mathf.Sqrt(JumpHeight * -2f * Gravity);
+                    _jumpTimeoutDelta = JumpTimeout;
+                    _input.jump = false;
+                    Debug.Log($"[JUMP] Fired! vel:{_verticalVelocity}");
 
                     // update animator if using character
                     if (_hasAnimator)
@@ -325,6 +340,8 @@ namespace StarterAssets
             }
             else
             {
+                    _wasGrounded = false; 
+
                 // reset the jump timeout timer
                 _jumpTimeoutDelta = JumpTimeout;
 
@@ -350,6 +367,8 @@ namespace StarterAssets
             if (_verticalVelocity < _terminalVelocity)
             {
                 _verticalVelocity += Gravity * Time.deltaTime;
+                    Debug.Log($"[GRAVITY] vel:{_verticalVelocity:F2} grounded:{Grounded}");
+
             }
         }
 

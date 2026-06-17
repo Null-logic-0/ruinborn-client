@@ -207,7 +207,6 @@ public class CombatController : MonoBehaviour
 
     public void Die()
     {
-    Debug.Log($"[Combat] Die() — isDead:{_isDead} animNull:{_animator == null}");
 
     if (_isDead) return;
 
@@ -215,6 +214,9 @@ public class CombatController : MonoBehaviour
     _isDead      = true;
     _cooldown    = 999f;
     _isCrouching = false;
+
+    var tpc = GetComponent<StarterAssets.ThirdPersonController>();
+    if (tpc != null) tpc.enabled = false; 
 
     // Disable CharacterController so it stops fighting gravity
     var cc = GetComponent<CharacterController>();
@@ -242,32 +244,24 @@ public class CombatController : MonoBehaviour
 
 IEnumerator FallDown()
 {
-    float elapsed    = 0f;
-    float duration   = 0.8f;
-    float halfHeight = 0.9f;
+    // Freeze animation in current pose
+    if (_animator != null)
+        _animator.speed = 0f;
 
-    Quaternion startRot = transform.rotation;
+    float elapsed  = 0f;
+    float duration = 0.2f;
 
-    // Fall forward (face down) — change to -90f to fall backward (face up)
-    Quaternion endRot = startRot * Quaternion.Euler(90f, 0f, 0f);
-
-    Vector3 startCenter = transform.position + Vector3.up * halfHeight;
-    Vector3 endCenter   = new Vector3(startCenter.x, 0.15f, startCenter.z);
+    Vector3 startPos = transform.position;
+    Vector3 endPos   = startPos - Vector3.up * 0.01f;
 
     while (elapsed < duration)
     {
         elapsed += Time.deltaTime;
-        float t  = Mathf.SmoothStep(0f, 1f, elapsed / duration);
-
-        transform.rotation = Quaternion.Lerp(startRot, endRot, t);
-
-        Vector3 currentCenter = Vector3.Lerp(startCenter, endCenter, t);
-        transform.position    = currentCenter - transform.up * halfHeight;
-
+        float t = Mathf.SmoothStep(0f, 1f, elapsed / duration);
+        transform.position = Vector3.Lerp(startPos, endPos, t);
         yield return null;
     }
 }
-
     // Return to locomotion
 
     IEnumerator ReturnToMovement(float delay)
