@@ -7,14 +7,9 @@ using UnityEngine;
 
 public class RuinbornNetwork : MonoBehaviour
 {
-    [Header("Server")]
-    [SerializeField] private string serverUrl = "ws://localhost:4000/socket/websocket";
-    [SerializeField] private string matchId   = "room_1";
-
     [Header("Player")]
-    [SerializeField] private string playerId  = "";
+    [SerializeField] private string playerId = "";
 
-    //  Events 
     public static event Action<string, int>     OnPlayerJoined;
     public static event Action<string, int>     OnPlayerLeft;
     public static event Action<string, Vector3> OnPlayerMoved;
@@ -26,14 +21,15 @@ public class RuinbornNetwork : MonoBehaviour
 
     public static RuinbornNetwork Instance { get; private set; }
 
+    private string serverUrl;
+    private string matchId;
+
     private WebSocket _ws;
     private int       _ref           = 0;
     private float     _heartbeatTime = 0f;
     private bool      _joined        = false;
 
     const float HeartbeatInterval = 30f;
-
-   
 
     void Awake()
     {
@@ -43,7 +39,8 @@ public class RuinbornNetwork : MonoBehaviour
 
     async void Start()
     {
-        // Persist player ID across scene reloads
+        await LoadConfig();   // ← load config FIRST
+
         if (string.IsNullOrEmpty(playerId))
         {
             playerId = PlayerPrefs.GetString("ruinborn_player_id", "");
@@ -57,6 +54,20 @@ public class RuinbornNetwork : MonoBehaviour
         }
 
         await Connect();
+    }
+
+    async Task LoadConfig()
+    {
+        var path = System.IO.Path.Combine(Application.streamingAssetsPath, "config.json");
+        var json = await System.IO.File.ReadAllTextAsync(path);
+        var cfg  = JObject.Parse(json);
+
+        serverUrl = cfg["server_url"]?.ToString()
+            ?? throw new Exception("config.json missing 'server_url'");
+        matchId   = cfg["match_id"]?.ToString()
+            ?? throw new Exception("config.json missing 'match_id'");
+
+        Debug.Log($"[Network] Config loaded — {serverUrl} match:{matchId}");
     }
 
     async Task Connect()
@@ -102,7 +113,6 @@ public class RuinbornNetwork : MonoBehaviour
         if (_ws != null) await _ws.Close();
     }
 
-    // Connection
     void HandleOpen()
     {
         Debug.Log("[Network] WebSocket open — joining match...");
@@ -124,8 +134,6 @@ public class RuinbornNetwork : MonoBehaviour
         Debug.Log("[Network] Retrying join now");
         _ = JoinMatch();
     }
-
-    // Messages 
 
     void HandleMessage(byte[] bytes)
     {
@@ -216,7 +224,6 @@ public class RuinbornNetwork : MonoBehaviour
         }
     }
 
-    //  Public API
     public async Task Push(string eventName, JObject payload = null)
     {
         if (_ws == null || !_joined)
@@ -252,8 +259,6 @@ public class RuinbornNetwork : MonoBehaviour
 
     public string PlayerId => playerId;
     public bool   IsJoined => _joined;
-
-    // Private 
 
     async Task SendRaw(string joinRef, string topic, string eventName, JObject payload)
     {

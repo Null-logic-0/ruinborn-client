@@ -17,3 +17,7 @@
 mono_crash.mem.*.blob
 Assets/TerrainDemoScene_URP/
 Assets/TerrainDemoScene_URP.meta
+
+Assets/StreamingAssets/config.json.meta
+Assets/StreamingAssets/config.json.meta
+Assets/StreamingAssets/config.json
