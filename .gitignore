@@ -15,3 +15,5 @@
 *.user
 *.userprefs
 mono_crash.mem.*.blob
+Assets/TerrainDemoScene_URP/
+Assets/TerrainDemoScene_URP.meta
