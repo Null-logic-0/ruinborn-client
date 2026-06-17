@@ -38,6 +38,9 @@ public class CombatController : MonoBehaviour
     [SerializeField] private string crouchAnimation = "1Hand_Up_Crouch_F";
     [SerializeField] private string deathAnimation  = "HumanM@Death01";
 
+    [SerializeField] private AudioSource _audioSource;
+    [SerializeField] private AudioClip   _swingClip;
+
    
 
     void Start()
@@ -139,6 +142,9 @@ public class CombatController : MonoBehaviour
     void Attack()
     {
         StopAllCoroutines();
+
+        if (_audioSource != null && _swingClip != null)
+        _audioSource.PlayOneShot(_swingClip);  
 
         var    anims   = weapons[_currentWeapon].animations;
         string anim    = anims[_comboIndex % anims.Length];
